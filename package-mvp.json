@@ -1,0 +1,30 @@
+{
+  "name": "sitar-mvp-demo",
+  "version": "1.0.0",
+  "description": "SITAR MVP Demonstration - Smart Integrated Tourist Assistance & Response System",
+  "main": "scripts/start-mvp.js",
+  "scripts": {
+    "start": "node scripts/start-mvp.js",
+    "dev": "nodemon scripts/start-mvp.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "tourist-safety",
+    "emergency-response",
+    "real-time-tracking",
+    "sos-system",
+    "smart-city",
+    "geofencing",
+    "blockchain",
+    "ai"
+  ],
+  "author": "Ministry of Development of North Eastern Region",
+  "license": "MIT"
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@sitar/blockchain-service",
+  "version": "1.0.0",
+  "description": "Blockchain service for digital identity management",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@sitar/types": "workspace:*",
+    "express": "^4.18.2",
+    "fabric-network": "^2.2.19",
+    "fabric-ca-client": "^2.2.19",
+    "crypto-js": "^4.1.1",
+    "uuid": "^9.0.0",
+    "joi": "^17.9.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "winston": "^3.10.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.13",
+    "@types/uuid": "^9.0.2",
+    "@types/crypto-js": "^4.1.1",
+    "typescript": "^5.1.6",
+    "ts-node-dev": "^2.0.0",
+    "jest": "^29.6.1",
+    "@types/jest": "^29.5.3",
+    "rimraf": "^5.0.1"
+  }
+}

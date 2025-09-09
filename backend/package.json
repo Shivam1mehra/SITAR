@@ -1,0 +1,15 @@
+{
+  "name": "sitar-backend-simple",
+  "version": "1.0.0",
+  "description": "Simplified SITAR backend for MVP demo",
+  "main": "server-simple.js",
+  "scripts": {
+    "start": "node server-simple.js",
+    "dev": "node server-simple.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ws": "^8.13.0"
+  }
+}

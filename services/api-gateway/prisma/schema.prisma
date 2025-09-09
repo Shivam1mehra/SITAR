@@ -1,0 +1,529 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  phoneNumber String?  @unique
+  passwordHash String
+  role        UserRole @default(TOURIST)
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  lastLogin   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tourist      Tourist?
+  policeOfficer PoliceOfficer?
+  sessions     UserSession[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  deviceId  String?
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+enum UserRole {
+  TOURIST
+  POLICE_OFFICER
+  TOURISM_ADMIN
+  SYSTEM_ADMIN
+}
+
+// Tourist Management
+model Tourist {
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  did              String?          @unique // Blockchain DID
+  name             String
+  nationality      String
+  dateOfBirth      DateTime?
+  gender           String?
+  profilePicture   String?
+  kycVerified      Boolean          @default(false)
+  kycDocument      Json? // Store KYC document info
+  emergencyContacts Json // Array of emergency contacts
+  preferences      Json? // User preferences
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trips           Trip[]
+  locations       LocationData[]
+  alerts          Alert[]
+  safetyScores    SafetyScore[]
+  iotDevices      IoTDevice[]
+
+  @@map("tourists")
+}
+
+model Trip {
+  id            String      @id @default(cuid())
+  touristId     String
+  did           String?     // Associated DID for this trip
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  purpose       String?
+  status        TripStatus  @default(PLANNED)
+  itinerary     Json? // Array of itinerary points
+  safetyScore   Float       @default(100)
+  consentFlags  Json // Privacy consent flags
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tourist Tourist @relation(fields: [touristId], references: [id], onDelete: Cascade)
+  alerts  Alert[]
+
+  @@map("trips")
+}
+
+enum TripStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EMERGENCY
+}
+
+// Location and Geofencing
+model LocationData {
+  id          String   @id @default(cuid())
+  touristId   String
+  tripId      String?
+  did         String?
+  latitude    Float
+  longitude   Float
+  altitude    Float?
+  accuracy    Float?
+  speed       Float?
+  bearing     Float?
+  batteryLevel Int?
+  isManual    Boolean  @default(false)
+  deviceInfo  Json?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  tourist Tourist @relation(fields: [touristId], references: [id], onDelete: Cascade)
+
+  @@map("location_data")
+  @@index([touristId, timestamp])
+  @@index([latitude, longitude])
+}
+
+model Geofence {
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  type           GeofenceType
+  geometry       Json // GeoJSON geometry
+  riskLevel      RiskLevel       @default(LOW)
+  activeSchedule Json? // Time-based activation
+  metadata       Json?
+  isActive       Boolean         @default(true)
+  createdBy      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  alerts Alert[]
+
+  @@map("geofences")
+}
+
+enum GeofenceType {
+  SAFE_ZONE
+  RESTRICTED_ZONE
+  HIGH_RISK_ZONE
+  EMERGENCY_ZONE
+  TOURIST_SPOT
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Alert and Incident Management
+model Alert {
+  id                String        @id @default(cuid())
+  touristId         String
+  tripId            String?
+  geofenceId        String?
+  did               String?
+  type              AlertType
+  severity          Severity      @default(MEDIUM)
+  status            AlertStatus   @default(OPEN)
+  title             String
+  message           String
+  latitude          Float
+  longitude         Float
+  metadata          Json? // Additional context data
+  assignedOfficerId String?
+  responseTime      Int? // in seconds
+  resolvedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tourist          Tourist        @relation(fields: [touristId], references: [id], onDelete: Cascade)
+  trip             Trip?          @relation(fields: [tripId], references: [id])
+  geofence         Geofence?      @relation(fields: [geofenceId], references: [id])
+  assignedOfficer  PoliceOfficer? @relation(fields: [assignedOfficerId], references: [id])
+  incident         Incident?
+  alertEvents      AlertEvent[]
+
+  @@map("alerts")
+  @@index([touristId, createdAt])
+  @@index([status, severity])
+}
+
+model AlertEvent {
+  id          String   @id @default(cuid())
+  alertId     String
+  type        String
+  description String
+  performedBy String?
+  metadata    Json?
+  timestamp   DateTime @default(now())
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@map("alert_events")
+}
+
+enum AlertType {
+  PANIC_BUTTON
+  GEOFENCE_BREACH
+  ROUTE_DEVIATION
+  PROLONGED_INACTIVITY
+  DEVICE_OFFLINE
+  ANOMALY_DETECTED
+  HEALTH_EMERGENCY
+  MISSING_PERSON
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  FALSE_ALARM
+}
+
+model Incident {
+  id              String           @id @default(cuid())
+  alertId         String           @unique
+  firNumber       String?          @unique
+  status          IncidentStatus   @default(REPORTED)
+  priority        Priority         @default(MEDIUM)
+  category        IncidentCategory
+  title           String
+  description     String
+  latitude        Float
+  longitude       Float
+  reportedBy      String
+  assignedUnits   Json // Array of police unit IDs
+  witnesses       Json? // Array of witness information
+  evidence        Json? // Array of evidence records
+  timeline        Json? // Array of incident events
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@map("incidents")
+}
+
+enum IncidentStatus {
+  REPORTED
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IncidentCategory {
+  MISSING_PERSON
+  MEDICAL_EMERGENCY
+  CRIME
+  ACCIDENT
+  NATURAL_DISASTER
+  TERRORIST_THREAT
+  OTHER
+}
+
+// Safety Scoring
+model SafetyScore {
+  id            String   @id @default(cuid())
+  touristId     String
+  did           String?
+  currentScore  Float
+  locationRisk  Float
+  timeRisk      Float
+  activityRisk  Float
+  deviationRisk Float
+  deviceHealth  Float
+  trend         String   @default("stable") // improving, stable, declining
+  recommendations Json? // Array of recommendations
+  lastUpdated   DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  tourist Tourist @relation(fields: [touristId], references: [id], onDelete: Cascade)
+
+  @@map("safety_scores")
+  @@index([touristId, lastUpdated])
+}
+
+// Police and Authority Management
+model PoliceOfficer {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  badgeNumber   String    @unique
+  name          String
+  rank          String?
+  station       String?
+  department    String?
+  phoneNumber   String?
+  email         String?
+  currentLat    Float?
+  currentLng    Float?
+  isAvailable   Boolean   @default(true)
+  isOnDuty      Boolean   @default(false)
+  expertise     Json? // Array of expertise areas
+  languages     Json? // Array of languages
+  lastLocation  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAlerts Alert[]
+
+  @@map("police_officers")
+}
+
+model PoliceUnit {
+  id            String   @id @default(cuid())
+  name          String
+  type          String // patrol, emergency, tourist_police, cyber_crime
+  officers      Json // Array of officer IDs
+  currentLat    Float?
+  currentLng    Float?
+  isAvailable   Boolean  @default(true)
+  equipment     Json? // Array of equipment
+  jurisdiction  String?
+  contactNumber String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("police_units")
+}
+
+// AI/ML and Analytics
+model AnomalyDetection {
+  id          String      @id @default(cuid())
+  touristId   String
+  did         String?
+  type        AnomalyType
+  confidence  Float
+  description String
+  features    Json // Feature values that led to detection
+  threshold   Float
+  context     Json? // Additional context data
+  timestamp   DateTime    @default(now())
+  processed   Boolean     @default(false)
+  alertId     String? // Link to created alert if any
+
+  @@map("anomaly_detections")
+  @@index([touristId, timestamp])
+  @@index([type, confidence])
+}
+
+enum AnomalyType {
+  LOCATION_JUMP
+  SPEED_ANOMALY
+  ROUTE_DEVIATION
+  TIME_ANOMALY
+  ACTIVITY_ANOMALY
+  DEVICE_BEHAVIOR
+}
+
+// IoT Device Management
+model IoTDevice {
+  id           String    @id @default(cuid())
+  deviceId     String    @unique
+  type         DeviceType
+  touristId    String?
+  name         String
+  description  String?
+  currentLat   Float?
+  currentLng   Float?
+  batteryLevel Int?
+  isActive     Boolean   @default(true)
+  firmware     String?
+  capabilities Json? // Device capabilities
+  lastHeartbeat DateTime?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tourist    Tourist?         @relation(fields: [touristId], references: [id])
+  sensorData IoTSensorData[]
+
+  @@map("iot_devices")
+}
+
+model IoTSensorData {
+  id         String       @id @default(cuid())
+  deviceId   String
+  sensorType String
+  value      Float
+  unit       String
+  quality    DataQuality  @default(GOOD)
+  timestamp  DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+
+  device IoTDevice @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@map("iot_sensor_data")
+  @@index([deviceId, timestamp])
+  @@index([sensorType, timestamp])
+}
+
+enum DeviceType {
+  SMART_BAND
+  BEACON
+  SENSOR
+  CAMERA
+}
+
+enum DataQuality {
+  GOOD
+  FAIR
+  POOR
+}
+
+// System Configuration and Audit
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String
+  description String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  oldValues  Json?
+  newValues  Json?
+  ip         String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([userId, timestamp])
+  @@index([resource, timestamp])
+}
+
+// Notification Management
+model NotificationTemplate {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  type     String // sms, email, push, whatsapp
+  language String   @default("en")
+  subject  String?
+  content  String
+  variables Json? // Template variables
+  isActive Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_templates")
+}
+
+model NotificationLog {
+  id          String            @id @default(cuid())
+  userId      String?
+  type        String
+  recipient   String
+  subject     String?
+  content     String
+  status      NotificationStatus @default(PENDING)
+  errorMessage String?
+  sentAt      DateTime?
+  createdAt   DateTime          @default(now())
+
+  @@map("notification_logs")
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  DELIVERED
+}
+
+// Analytics and Reporting
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventType  String
+  category   String?
+  userId     String?
+  touristId  String?
+  data       Json
+  ip         String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@map("analytics_events")
+  @@index([eventType, timestamp])
+  @@index([userId, timestamp])
+}
